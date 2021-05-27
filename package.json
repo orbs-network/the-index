@@ -60,6 +60,7 @@
   },
   "scripts": {
     "prettier": "prettier --write 'src/**/*.{ts,js,json,sol}'",
-    "live-history-appender": "npm run prettier && ts-node ./src/live-history-appender/index.ts"
+    "live-history-appender": "npm run prettier && ts-node ./src/live-history-appender/index.ts",
+    "rlp-read": "ts-node ./rlp-read.ts"
   }
 }

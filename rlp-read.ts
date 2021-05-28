@@ -39,6 +39,15 @@ function printRlp(data: any, blob: string) {
       console.log(`    "Data": "0x${log[1].toString('hex')}",`)
     }
     console.log('  ],');
+    console.log(`  "Code": "0x${data[2].toString('hex')}",`)
+    console.log('  "States": [');
+    for (const state of data[3]) {
+      console.log('    {');
+      console.log(`      "Key": "0x${state[0].toString('hex')}",`)
+      console.log(`      "Value": "0x${state[1].toString('hex')}",`)
+      console.log('    },');
+    }
+    console.log('  ],');
   }
   console.log('},');
   // console.dir(data, { depth: null });

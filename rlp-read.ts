@@ -26,6 +26,10 @@ function printRlp(data: any, blob: string) {
   if (blob == 'blocks') {
     console.log(`  "BlockNumber": "0x${data[0].toString('hex')}",`)
     console.log(`  "Time": "0x${data[1].toString('hex')}",`)
+    console.log(`  "Hash": "0x${data[2].toString('hex')}",`)
+    console.log(`  "Coinbase": "0x${data[3].toString('hex')}",`)
+    console.log(`  "Difficulty": "0x${data[4].toString('hex')}",`)
+    console.log(`  "GasLimit": "0x${data[5].toString('hex')}",`)
   }
   if (blob.startsWith('contract-')) {
     console.log(`  "BlockNumber": "0x${data[0].toString('hex')}",`)

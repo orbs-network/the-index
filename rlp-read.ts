@@ -1,5 +1,6 @@
 import { rlp } from "ethereumjs-util";
 import * as fs from "fs";
+import bn from "bn.js";
 
 async function main() {
   const blob = process.argv[2];
@@ -24,50 +25,50 @@ async function main() {
 function printRlp(data: any, blob: string) {
   console.log('{');
   if (blob == 'blocks') {
-    console.log(`  "BlockNumber": "0x${data[0].toString('hex')}",`);
-    console.log(`  "Time": "0x${data[1].toString('hex')}",`);
-    console.log(`  "Hash": "0x${data[2].toString('hex')}",`);
-    console.log(`  "Coinbase": "0x${data[3].toString('hex')}",`);
-    console.log(`  "Difficulty": "0x${data[4].toString('hex')}",`);
-    console.log(`  "GasLimit": "0x${data[5].toString('hex')}",`);
+    console.log(`  "BlockNumber": ${toInt(data[0])},`);
+    console.log(`  "Time": ${toInt(data[1])},`);
+    console.log(`  "Hash": "${toHex(data[2])}",`);
+    console.log(`  "Coinbase": "${toHex(data[3])}",`);
+    console.log(`  "Difficulty": "${toHex(data[4])}",`);
+    console.log(`  "GasLimit": "${toHex(data[5])}",`);
   }
   if (blob == 'accounts') {
-    console.log(`  "BlockNumber": "0x${data[0].toString('hex')}",`);
+    console.log(`  "BlockNumber": ${toInt(data[0])},`);
     console.log('  "Changes": [');
     for (const account of data[1]) {
       console.log('    {');
-      console.log(`      "Address": "0x${account[0].toString('hex')}",`);
-      console.log(`      "Balance": "0x${account[1].toString('hex')}",`);
-      console.log(`      "CodeHash": "0x${account[2].toString('hex')}",`);
+      console.log(`      "Address": "${toHex(account[0])}",`);
+      console.log(`      "Balance": ${toInt(account[1])},`);
+      console.log(`      "CodeHash": "${toHex(account[2])}",`);
       console.log('    },');
     }
     console.log('  ],');
   }
   if (blob.startsWith('contract-')) {
-    console.log(`  "BlockNumber": "0x${data[0].toString('hex')}",`);
+    console.log(`  "BlockNumber": ${toInt(data[0])},`);
     console.log('  "Logs": [');
     for (const log of data[1]) {
       console.log('    "Topics": [');
       for (const topic of log[0]) {
-        console.log(`      "0x${topic.toString('hex')}",`);
+        console.log(`      "${toHex(topic)}",`);
       }
       console.log('    ],');
-      console.log(`    "Data": "0x${log[1].toString('hex')}",`);
+      console.log(`    "Data": "${toHex(log[1])}",`);
     }
     console.log('  ],');
-    console.log(`  "Code": "0x${data[2].toString('hex')}",`);
+    console.log(`  "Code": "${toHex(data[2])}",`);
     console.log('  "States": [');
     for (const state of data[3]) {
       console.log('    {');
-      console.log(`      "Key": "0x${state[0].toString('hex')}",`);
-      console.log(`      "Value": "0x${state[1].toString('hex')}",`);
+      console.log(`      "Key": "${toHex(state[0])}",`);
+      console.log(`      "Value": "${toHex(state[1])}",`);
       console.log('    },');
     }
     console.log('  ],');
   }
   if (blob.startsWith('account-')) {
-    console.log(`  "BlockNumber": "0x${data[0].toString('hex')}",`);
-    console.log(`  "Balance": "0x${data[1].toString('hex')}",`);
+    console.log(`  "BlockNumber": ${toInt(data[0])},`);
+    console.log(`  "Balance": ${toInt(data[1])},`);
   }
   console.log('},');
   // console.dir(data, { depth: null });
@@ -77,3 +78,11 @@ main().catch((e) => {
   console.error(e);
   process.exit(1);
 });
+
+function toHex(obj: Buffer): string {
+  return `0x${obj.toString('hex')}`;
+}
+
+function toInt(obj: Buffer): string {
+  return new bn(`${obj.toString('hex')}`, 16).toString();
+}

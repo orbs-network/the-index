@@ -6,7 +6,7 @@ async function main() {
   const blob = process.argv[2];
   if (!blob) {
     console.log('Usage: rlp-read <blob>');
-    console.log(' blob: blocks|contract-0xA5b27D06B81FF128f06e6B506E30a71e8230576C');
+    console.log(' blob: blocks|accounts|contracts-a5');
     console.log('');
     process.exit(0);
   }
@@ -29,8 +29,8 @@ function printRlp(data: any, blob: string) {
     console.log(`  "Time": ${toInt(data[1])},`);
     console.log(`  "Hash": "${toHex(data[2])}",`);
     console.log(`  "Coinbase": "${toHex(data[3])}",`);
-    console.log(`  "Difficulty": "${toHex(data[4])}",`);
-    console.log(`  "GasLimit": "${toHex(data[5])}",`);
+    console.log(`  "Difficulty": ${toInt(data[4])},`);
+    console.log(`  "GasLimit": ${toInt(data[5])},`);
   }
   if (blob == 'accounts') {
     console.log(`  "BlockNumber": ${toInt(data[0])},`);
@@ -44,31 +44,35 @@ function printRlp(data: any, blob: string) {
     }
     console.log('  ],');
   }
-  if (blob.startsWith('contract-')) {
+  if (blob.startsWith('contracts-')) {
     console.log(`  "BlockNumber": ${toInt(data[0])},`);
-    console.log('  "Logs": [');
-    for (const log of data[1]) {
-      console.log('    "Topics": [');
-      for (const topic of log[0]) {
-        console.log(`      "${toHex(topic)}",`);
-      }
-      console.log('    ],');
-      console.log(`    "Data": "${toHex(log[1])}",`);
-    }
-    console.log('  ],');
-    console.log(`  "Code": "${toHex(data[2])}",`);
-    console.log('  "States": [');
-    for (const state of data[3]) {
+    console.log('  "Contracts": [');
+    for (const contract of data[1]) {
       console.log('    {');
-      console.log(`      "Key": "${toHex(state[0])}",`);
-      console.log(`      "Value": "${toHex(state[1])}",`);
+      console.log(`      "Address": "${toHex(contract[0])}",`);
+      console.log('      "Logs": [');
+      for (const log of contract[1]) {
+        console.log('        "Topics": [');
+        for (const topic of log[0]) {
+          console.log(`          "${toHex(topic)}",`);
+        }
+        console.log('        ],');
+        console.log(`        "Data": "${toHex(log[1])}",`);
+      }
+      console.log('      ],');
+      console.log(`      "Code": "${toHex(contract[2])}",`);
+      console.log('      "States": [');
+      for (const state of contract[3]) {
+        console.log('        {');
+        console.log(`          "Key": "${toHex(state[0])}",`);
+        console.log(`          "Value": "${toHex(state[1])}",`);
+        console.log('        },');
+      }
+      console.log('      ],');
+      console.log(`      "Balance": ${toInt(contract[4])},`);
       console.log('    },');
     }
     console.log('  ],');
-  }
-  if (blob.startsWith('account-')) {
-    console.log(`  "BlockNumber": ${toInt(data[0])},`);
-    console.log(`  "Balance": ${toInt(data[1])},`);
   }
   console.log('},');
   // console.dir(data, { depth: null });

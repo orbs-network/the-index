@@ -6,7 +6,7 @@ async function main() {
   const blob = process.argv[2];
   if (!blob) {
     console.log('Usage: rlp-read <blob>');
-    console.log(' blob: blocks|accounts|contracts-a5');
+    console.log(' blob: cursor|blocks|accounts|contracts17');
     console.log('');
     process.exit(0);
   }
@@ -24,7 +24,11 @@ async function main() {
 
 function printRlp(data: any, blob: string) {
   console.log('{');
-  if (blob == 'blocks') {
+  if (blob == 'cursor') {
+    console.log(`  "BlockNumber": ${toInt(data[0])},`);
+    console.log(`  "Time": ${toInt(data[1])},`);
+  }
+  if (blob.startsWith('blocks')) {
     console.log(`  "BlockNumber": ${toInt(data[0])},`);
     console.log(`  "Time": ${toInt(data[1])},`);
     console.log(`  "Hash": "${toHex(data[2])}",`);
@@ -32,7 +36,7 @@ function printRlp(data: any, blob: string) {
     console.log(`  "Difficulty": ${toInt(data[4])},`);
     console.log(`  "GasLimit": ${toInt(data[5])},`);
   }
-  if (blob == 'accounts') {
+  if (blob.startsWith('accounts')) {
     console.log(`  "BlockNumber": ${toInt(data[0])},`);
     console.log('  "Changes": [');
     for (const account of data[1]) {
@@ -44,7 +48,7 @@ function printRlp(data: any, blob: string) {
     }
     console.log('  ],');
   }
-  if (blob.startsWith('contracts-')) {
+  if (blob.startsWith('contracts')) {
     console.log(`  "BlockNumber": ${toInt(data[0])},`);
     console.log('  "Contracts": [');
     for (const contract of data[1]) {

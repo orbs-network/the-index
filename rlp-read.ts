@@ -73,7 +73,9 @@ function printRlp(data: any, blob: string) {
         console.log('        },');
       }
       console.log('      ],');
-      console.log(`      "Balance": ${toInt(contract[4])},`);
+      if (contract[4].length > 0) {
+        console.log(`      "Balance": ${toInt(contract[4][0])},`);
+      }
       console.log('    },');
     }
     console.log('  ],');

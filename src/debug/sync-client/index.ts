@@ -2,7 +2,7 @@ import Web3 from "web3";
 import _ from "lodash";
 import { bn, configFile } from "./utils";
 import * as path from "path";
-import { Config, EthereumClient } from "../ethereumjs/client";
+import { Config, EthereumClient } from "../../../lib/ethereumjs/client";
 import Common from "@ethereumjs/common";
 const level = require("level");
 const fs = require("fs-extra");

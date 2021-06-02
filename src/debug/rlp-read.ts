@@ -7,7 +7,7 @@ async function main() {
   const filepath = process.argv[2];
   if (!filepath) {
     console.log("Usage: rlp-read <filepath>");
-    console.log(" filepath: cursor|blocks|accounts|contracts17");
+    console.log(" filepath: cursor|blocks|accounts|contracts-a0");
     console.log("");
     console.log("Example: rlp-read ~/go/src/github.com/orbs-network/the-index-go-ethereum/the-index/blocks-00001.rlp");
     process.exit(0);

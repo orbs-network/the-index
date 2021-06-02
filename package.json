@@ -47,6 +47,7 @@
   },
   "scripts": {
     "prettier": "prettier --write 'src/**/*.{ts,js,json,sol}'",
-    "rlp-read": "ts-node ./src/debug/rlp-read.ts"
+    "rlp-read": "ts-node ./src/debug/rlp-read.ts",
+    "test-schema": "ts-node ./src/schema-indexer/test/index.ts"
   }
 }

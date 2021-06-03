@@ -5,12 +5,18 @@ export abstract class ISchema {
 }
 
 export abstract class IWeb3 {
+  abstract Contract(jsonAbi: string, address: string): IContract;
   abstract getBlock(): Promise<Block | null>;
 }
 
 export abstract class IData {
   abstract getLatestBlockNumber(): Promise<number>;
-  abstract findNextBlock(blockNumber: number, latestBlockNumber: number): Promise<Buffer[]>;
+  abstract findHeaderForBlock(blockNumber: number): Promise<Buffer[]>;
+  abstract findContractsForBlock(shard: string, blockNumber: number): Promise<Buffer[]>;
+}
+
+export abstract class IContract {
+  abstract getEvents(event?: string): Promise<Event[]>;
 }
 
 export interface Block {
@@ -20,4 +26,13 @@ export interface Block {
   miner: string;
   difficulty: string;
   gasLimit: number;
+}
+
+export interface Event {
+  returnValues: {};
+  raw: {
+    data: string;
+    topics: string[];
+  };
+  event?: string;
 }

@@ -6,7 +6,7 @@ async function main() {
   const schemaName = process.argv[2];
   if (!schemaName) {
     console.log("Usage: test-schema <name>");
-    console.log(" name: blocks");
+    console.log(" name: blocks|events");
     console.log("");
     process.exit(0);
   }
@@ -20,7 +20,7 @@ async function main() {
   const data = new LocalTestData(`${__dirname}/data`);
 
   console.log(`Processing schema:\n${jsFilePath}\n`);
-  processSchema(jsFilePath, data);
+  await processSchema(jsFilePath, data);
 }
 
 main().catch((e) => {

@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import { IData } from "../interfaces";
 import { toNumber, cursorParser, blockParser, contractsForBlockParser, decodeFromStream } from "../parser";
+import { Perf } from "../perf";
 
 export class LocalTestData implements IData {
   protected blocksBlockNumber = 0;
@@ -11,7 +12,7 @@ export class LocalTestData implements IData {
   protected contractsBufferByShard: { [shard: string]: Buffer } = {};
   protected contractsChunkByShard: { [shard: string]: number } = {};
 
-  constructor(protected dataPath: string) {}
+  constructor(protected dataPath: string, protected perf: Perf) {}
 
   async getLatestBlockNumber(): Promise<number> {
     const buffer = this.readFile("cursor");
@@ -26,7 +27,9 @@ export class LocalTestData implements IData {
     while (this.blocksBlockNumber <= blockNumber) {
       // decode existing memory buffer as stream
       while (this.blocksBuffer.length > 0) {
+        /**/ this.perf.start("block:decodeFromStream");
         const decoded = decodeFromStream(this.blocksBuffer);
+        /**/ this.perf.end("block:decodeFromStream");
         const data = decoded.data as Buffer[];
         if (data.length == 0) return [];
         this.blocksBlockNumber = toNumber(blockParser.getBlockNumber(data));
@@ -54,7 +57,9 @@ export class LocalTestData implements IData {
     while (this.contractsBlockNumberByShard[shard] <= blockNumber) {
       // decode existing memory buffer as stream
       while (this.contractsBufferByShard[shard].length > 0) {
+        /**/ this.perf.start("contracts:decodeFromStream");
         const decoded = decodeFromStream(this.contractsBufferByShard[shard]);
+        /**/ this.perf.end("contracts:decodeFromStream");
         const data = decoded.data as Buffer[];
         if (data.length == 0) return [];
         this.contractsBlockNumberByShard[shard] = toNumber(contractsForBlockParser.getBlockNumber(data));

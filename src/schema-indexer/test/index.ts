@@ -1,4 +1,5 @@
 import * as fs from "fs";
+import { Perf } from "../perf";
 import { processSchema } from "../processor";
 import { LocalTestData } from "./data";
 
@@ -17,10 +18,11 @@ async function main() {
     process.exit(0);
   }
 
-  const data = new LocalTestData(`${__dirname}/data`);
+  const perf = new Perf();
+  const data = new LocalTestData(`${__dirname}/data`, perf);
 
   console.log(`Processing schema:\n${jsFilePath}\n`);
-  await processSchema(jsFilePath, data);
+  await processSchema(jsFilePath, data, perf);
 }
 
 main().catch((e) => {

@@ -23,6 +23,8 @@ async function main() {
 
   console.log(`Processing schema:\n${jsFilePath}\n`);
   await processSchema(jsFilePath, data, perf);
+
+  perf.report();
 }
 
 main().catch((e) => {

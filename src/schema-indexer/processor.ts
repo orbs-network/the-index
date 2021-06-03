@@ -45,7 +45,6 @@ class Processor implements IWeb3 {
       await this.schema.onDone();
     }
     /**/ this.perf.end("all");
-    this.perf.report();
   }
 
   // web3 interface

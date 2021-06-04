@@ -1,9 +1,20 @@
 import * as fs from "fs";
 import { IData } from "../interfaces";
-import { toNumber, cursorParser, blockParser, contractsForBlockParser, decodeFromStream } from "../parser";
+import {
+  toNumber,
+  cursorParser,
+  blockParser,
+  contractsForBlockParser,
+  decodeFromStream,
+  contractParser,
+  toHexString,
+  stateParser,
+} from "../parser";
 import { Perf } from "../perf";
 
 export class LocalTestData implements IData {
+  protected isTrackingState = false;
+
   protected blocksBlockNumber = 0;
   protected blocksBuffer = Buffer.alloc(0);
   protected blocksChunk = 0;
@@ -12,7 +23,13 @@ export class LocalTestData implements IData {
   protected contractsBufferByShard: { [shard: string]: Buffer } = {};
   protected contractsChunkByShard: { [shard: string]: number } = {};
 
+  protected contractsStateByAddress: { [address: string]: { [stateKey: string]: Buffer } } = {};
+
   constructor(protected dataPath: string, protected perf: Perf) {}
+
+  trackState(): void {
+    this.isTrackingState = true;
+  }
 
   async getLatestBlockNumber(): Promise<number> {
     const buffer = this.readFile("cursor");
@@ -33,6 +50,7 @@ export class LocalTestData implements IData {
         const data = decoded.data as Buffer[];
         if (data.length == 0) return [];
         this.blocksBlockNumber = toNumber(blockParser.getBlockNumber(data));
+        if (this.blocksBlockNumber > blockNumber) return [];
         if (this.blocksBlockNumber == blockNumber) {
           return data;
         }
@@ -49,11 +67,13 @@ export class LocalTestData implements IData {
   }
 
   async findContractsForBlock(shard: string, blockNumber: number): Promise<Buffer[]> {
+    // init properties
     if (this.contractsBlockNumberByShard[shard] == undefined) {
       this.contractsBlockNumberByShard[shard] = 0;
       this.contractsBufferByShard[shard] = Buffer.alloc(0);
       this.contractsChunkByShard[shard] = 0;
     }
+
     while (this.contractsBlockNumberByShard[shard] <= blockNumber) {
       // decode existing memory buffer as stream
       while (this.contractsBufferByShard[shard].length > 0) {
@@ -63,6 +83,8 @@ export class LocalTestData implements IData {
         const data = decoded.data as Buffer[];
         if (data.length == 0) return [];
         this.contractsBlockNumberByShard[shard] = toNumber(contractsForBlockParser.getBlockNumber(data));
+        // TODO: optimization: maybe track state changes only if contractsBlockNumber actually changed
+        if (this.isTrackingState) this.trackStateChanges(contractsForBlockParser.getContracts(data));
         if (this.contractsBlockNumberByShard[shard] > blockNumber) return [];
         if (this.contractsBlockNumberByShard[shard] == blockNumber) {
           return data;
@@ -77,6 +99,31 @@ export class LocalTestData implements IData {
       this.contractsChunkByShard[shard] = nextChunk;
     }
     return [];
+  }
+
+  getContractState(address: string, stateKey: string): Buffer {
+    if (!this.isTrackingState) throw new Error("Not tracking state, run data.trackState().");
+    const res = this.contractsStateByAddress[address]?.[stateKey];
+    if (res) return res;
+    else return Buffer.alloc(0);
+  }
+
+  trackStateChanges(contracts: Buffer[][]) {
+    /**/ this.perf.start("trackStateChanges");
+    for (const contract of contracts) {
+      const states = contractParser.getStates(contract);
+      if (states.length == 0) continue;
+      const address = toHexString(contractParser.getAddress(contract));
+      if (this.contractsStateByAddress[address] == undefined) {
+        this.contractsStateByAddress[address] = {};
+      }
+      for (const state of states) {
+        const key = toHexString(stateParser.getKey(state));
+        const value = stateParser.getValue(state);
+        this.contractsStateByAddress[address][key] = value;
+      }
+    }
+    /**/ this.perf.end("trackStateChanges");
   }
 
   readFile(name: string): Buffer | null {

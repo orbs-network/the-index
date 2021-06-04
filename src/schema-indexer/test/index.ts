@@ -7,7 +7,7 @@ async function main() {
   const schemaName = process.argv[2];
   if (!schemaName) {
     console.log("Usage: test-schema <name>");
-    console.log(" name: blocks|events");
+    console.log(" name: blocks|events|calls|storage");
     console.log("");
     process.exit(0);
   }

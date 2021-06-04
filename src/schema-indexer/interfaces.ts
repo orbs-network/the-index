@@ -10,13 +10,22 @@ export abstract class IWeb3 {
 }
 
 export abstract class IData {
+  abstract trackState(): void;
   abstract getLatestBlockNumber(): Promise<number>;
   abstract findHeaderForBlock(blockNumber: number): Promise<Buffer[]>;
   abstract findContractsForBlock(shard: string, blockNumber: number): Promise<Buffer[]>;
+  abstract getContractState(address: string, stateKey: string): Buffer;
 }
 
 export abstract class IContract {
   abstract getEvents(event?: string): Promise<Event[]>;
+  abstract hasStateChanges(): Promise<boolean>;
+  abstract getStorageAt(position: number | string): Promise<string>;
+  abstract methods: { [name: string]: (...inputs: any[]) => ICallable };
+}
+
+export abstract class ICallable {
+  abstract call(options?: CallOptions): Promise<CallResult>;
 }
 
 export interface Block {
@@ -36,3 +45,9 @@ export interface Event {
   };
   event?: string;
 }
+
+export interface CallOptions {
+  from?: string;
+}
+
+export type CallResult = any;

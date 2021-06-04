@@ -70,6 +70,15 @@ export class logParser {
   }
 }
 
+export class stateParser {
+  static getKey(data: Buffer[]): Buffer {
+    return data[0];
+  }
+  static getValue(data: Buffer[]): Buffer {
+    return data[1];
+  }
+}
+
 // utility functions
 
 export interface Decoded {

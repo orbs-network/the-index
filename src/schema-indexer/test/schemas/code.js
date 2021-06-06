@@ -1,21 +1,20 @@
-// print all changes to totalSupply of BAT ERC20 until initial token sale isFinalized
+// print BAT ERC20 contract code (check every 100,000 blocks)
 
 class Schema {
   async onInit(web3, data) {
     data.trackState();
     this.web3 = web3;
     this.batContract = this.web3.Contract(batContractAbi, "0x0D8775F648430679A709E98d2b0Cb6250d2887EF");
-    this.isBatSaleFinalized = false;
+    this.done = false;
   }
 
   async onBlock(blockNumber) {
-    if (this.isBatSaleFinalized) return;
-    const stateChanged = await this.batContract.hasStateChanges();
-    if (stateChanged) {
-      const totalSupply = await this.batContract.methods.totalSupply().call();
+    if (this.done) return;
+    if (blockNumber % 100000 == 0) {
+      const code = await this.batContract.getCode();
       console.log(`block ${blockNumber}:`);
-      console.dir(totalSupply);
-      this.isBatSaleFinalized = await this.batContract.methods.isFinalized().call();
+      console.dir(code);
+      if (code) this.done = true;
     }
   }
 }

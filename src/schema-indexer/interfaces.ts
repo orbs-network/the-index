@@ -14,13 +14,18 @@ export abstract class IData {
   abstract getLatestBlockNumber(): Promise<number>;
   abstract findHeaderForBlock(blockNumber: number): Promise<Buffer[]>;
   abstract findContractsForBlock(shard: string, blockNumber: number): Promise<Buffer[]>;
+  abstract isTrackedContract(address: string): boolean;
   abstract getContractState(address: string, stateKey: string): Buffer;
+  abstract getContractCode(address: string): Buffer;
+  abstract getContractBalance(address: string): Buffer;
 }
 
 export abstract class IContract {
   abstract getEvents(event?: string): Promise<Event[]>;
+  abstract isDeployed(): Promise<boolean>;
   abstract hasStateChanges(): Promise<boolean>;
   abstract getStorageAt(position: number | string): Promise<string>;
+  abstract getCode(): Promise<string>;
   abstract methods: { [name: string]: (...inputs: any[]) => ICallable };
 }
 
@@ -48,6 +53,7 @@ export interface Event {
 
 export interface CallOptions {
   from?: string;
+  fakeFromAccount?: boolean;
 }
 
 export type CallResult = any;

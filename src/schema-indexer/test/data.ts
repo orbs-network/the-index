@@ -9,6 +9,7 @@ import {
   contractParser,
   toHexString,
   stateParser,
+  emptyBuffer,
 } from "../parser";
 import { Perf } from "../perf";
 
@@ -16,13 +17,20 @@ export class LocalTestData implements IData {
   protected isTrackingState = false;
 
   protected blocksBlockNumber = 0;
-  protected blocksBuffer = Buffer.alloc(0);
+  protected blocksBuffer = emptyBuffer;
   protected blocksChunk = 0;
 
   protected contractsBlockNumberByShard: { [shard: string]: number } = {};
   protected contractsBufferByShard: { [shard: string]: Buffer } = {};
   protected contractsChunkByShard: { [shard: string]: number } = {};
 
+  protected contractsDataByAddress: {
+    [address: string]: {
+      deployedOnBlockNumber: number;
+      code: Buffer;
+      balance: Buffer;
+    };
+  } = {};
   protected contractsStateByAddress: { [address: string]: { [stateKey: string]: Buffer } } = {};
 
   constructor(protected dataPath: string, protected perf: Perf) {}
@@ -70,7 +78,7 @@ export class LocalTestData implements IData {
     // init properties
     if (this.contractsBlockNumberByShard[shard] == undefined) {
       this.contractsBlockNumberByShard[shard] = 0;
-      this.contractsBufferByShard[shard] = Buffer.alloc(0);
+      this.contractsBufferByShard[shard] = emptyBuffer;
       this.contractsChunkByShard[shard] = 0;
     }
 
@@ -84,7 +92,7 @@ export class LocalTestData implements IData {
         if (data.length == 0) return [];
         this.contractsBlockNumberByShard[shard] = toNumber(contractsForBlockParser.getBlockNumber(data));
         // TODO: optimization: maybe track state changes only if contractsBlockNumber actually changed
-        if (this.isTrackingState) this.trackStateChanges(contractsForBlockParser.getContracts(data));
+        if (this.isTrackingState) this.trackStateChanges(contractsForBlockParser.getContracts(data), blockNumber);
         if (this.contractsBlockNumberByShard[shard] > blockNumber) return [];
         if (this.contractsBlockNumberByShard[shard] == blockNumber) {
           return data;
@@ -101,26 +109,65 @@ export class LocalTestData implements IData {
     return [];
   }
 
+  isTrackedContract(address: string): boolean {
+    if (!this.isTrackingState) throw new Error("Not tracking state, run data.trackState().");
+    const data = this.contractsDataByAddress[address];
+    return !!data;
+  }
+
   getContractState(address: string, stateKey: string): Buffer {
     if (!this.isTrackingState) throw new Error("Not tracking state, run data.trackState().");
     const res = this.contractsStateByAddress[address]?.[stateKey];
     if (res) return res;
-    else return Buffer.alloc(0);
+    else return emptyBuffer;
   }
 
-  trackStateChanges(contracts: Buffer[][]) {
+  getContractCode(address: string): Buffer {
+    if (!this.isTrackingState) throw new Error("Not tracking state, run data.trackState().");
+    const data = this.contractsDataByAddress[address];
+    if (data) return data.code;
+    else return emptyBuffer;
+  }
+
+  getContractBalance(address: string): Buffer {
+    if (!this.isTrackingState) throw new Error("Not tracking state, run data.trackState().");
+    const data = this.contractsDataByAddress[address];
+    if (data) return data.balance;
+    else return emptyBuffer;
+  }
+
+  trackStateChanges(contracts: Buffer[][], blockNumber: number) {
     /**/ this.perf.start("trackStateChanges");
     for (const contract of contracts) {
-      const states = contractParser.getStates(contract);
-      if (states.length == 0) continue;
       const address = toHexString(contractParser.getAddress(contract));
-      if (this.contractsStateByAddress[address] == undefined) {
-        this.contractsStateByAddress[address] = {};
+      if (this.contractsDataByAddress[address] == undefined) {
+        this.contractsDataByAddress[address] = {
+          deployedOnBlockNumber: blockNumber,
+          code: emptyBuffer,
+          balance: emptyBuffer,
+        };
       }
-      for (const state of states) {
-        const key = toHexString(stateParser.getKey(state));
-        const value = stateParser.getValue(state);
-        this.contractsStateByAddress[address][key] = value;
+      // save state
+      const states = contractParser.getStates(contract);
+      if (states.length > 0) {
+        if (this.contractsStateByAddress[address] == undefined) {
+          this.contractsStateByAddress[address] = {};
+        }
+        for (const state of states) {
+          const key = toHexString(stateParser.getKey(state));
+          const value = stateParser.getValue(state);
+          this.contractsStateByAddress[address][key] = value;
+        }
+      }
+      // save code
+      const code = contractParser.getCode(contract);
+      if (code.length > 0) {
+        this.contractsDataByAddress[address].code = code;
+      }
+      // save balance
+      if (contractParser.hasBalance(contract)) {
+        const balance = contractParser.getBalance(contract);
+        this.contractsDataByAddress[address].balance = balance;
       }
     }
     /**/ this.perf.end("trackStateChanges");

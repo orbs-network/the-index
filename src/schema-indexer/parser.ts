@@ -1,4 +1,4 @@
-import bn from "bn.js";
+import BN from "bn.js";
 import { rlp } from "ethereumjs-util";
 
 // record parsers
@@ -55,8 +55,11 @@ export class contractParser {
   static getStates(data: Buffer[]): Buffer[][] {
     return data[3] as unknown as Buffer[][];
   }
+  static hasBalance(data: Buffer[]): boolean {
+    return data[4].length > 0;
+  }
   static getBalance(data: Buffer[]): Buffer {
-    if (data[4].length == 0) return Buffer.alloc(0);
+    if (data[4].length == 0) return emptyBuffer;
     else return (data[4] as unknown as Buffer[])[0];
   }
 }
@@ -99,10 +102,17 @@ export function toHexString(buffer: Buffer): string {
 }
 
 export function toDecString(buffer: Buffer): string {
-  return new bn(`${buffer.toString("hex")}`, 16).toString();
+  return new BN(`${buffer.toString("hex")}`, 16).toString();
+}
+
+export function toBN(buffer: Buffer): BN {
+  if (buffer.length == 0) return new BN(0);
+  return new BN(`${buffer.toString("hex")}`, 16);
 }
 
 export function toBuffer(hexString: string): Buffer {
   if (!hexString.startsWith("0x")) throw new Error("Hex string does not start with 0x.");
   return Buffer.from(hexString.slice(2), "hex");
 }
+
+export const emptyBuffer = Buffer.alloc(0);

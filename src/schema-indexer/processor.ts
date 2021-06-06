@@ -1,4 +1,12 @@
 import _ from "lodash";
+import BN from "bn.js";
+import VM from "@ethereumjs/vm";
+import EthereumJsBlockchain from "@ethereumjs/blockchain";
+import { StateManager as EthereumJsStateManager } from "@ethereumjs/vm/dist/state";
+import { Address as EthereumJsAddress } from "ethereumjs-util/dist/address";
+import { Account as EthereumJsAccount } from "ethereumjs-util/dist/account";
+import { Block as EthereumJsBlock } from "@ethereumjs/block/dist/block";
+import { StorageDump as EthereumJsStorageDump } from "@ethereumjs/vm/dist/state/interface";
 import abiDefault, { AbiCoder } from "web3-eth-abi";
 import { AbiItem } from "web3-utils";
 import { ISchema, IData, IWeb3, IContract, ICallable, Block, Event, CallOptions, CallResult } from "./interfaces";
@@ -11,6 +19,7 @@ import {
   contractParser,
   logParser,
   toBuffer,
+  toBN,
 } from "./parser";
 import { Perf } from "./perf";
 const abiCoder = abiDefault as unknown as AbiCoder;
@@ -25,8 +34,15 @@ export async function processSchema(schemaJsPath: string, data: IData, perf: Per
 class Processor implements IWeb3 {
   protected currentBlockNumber: number = 0;
   protected latestBlockNumber: number = 0;
+  protected vm: VM;
 
-  constructor(protected schema: ISchema, protected data: IData, protected perf: Perf) {}
+  constructor(protected schema: ISchema, protected data: IData, protected perf: Perf) {
+    // TODO: pass common: Common to support custom chains like bsc
+    this.vm = new VM({
+      stateManager: this.stateManager,
+      blockchain: this.blockchain,
+    });
+  }
 
   async run() {
     /**/ this.perf.start("all");
@@ -57,7 +73,9 @@ class Processor implements IWeb3 {
       protected abiMethodsByName: { [method: string]: AbiItem };
       protected eventTopic0BufferByName: { [event: string]: Buffer };
       protected shard: string;
-      protected addressAsBuffer;
+      protected addressAsBuffer: Buffer;
+      protected addressForEthereumJs: EthereumJsAddress;
+      readonly defaultCaller: EthereumJsAddress;
 
       methods: { [name: string]: (...inputs: any[]) => ICallable };
 
@@ -97,6 +115,8 @@ class Processor implements IWeb3 {
         this.shard = address.substr(2, 2).toLowerCase();
         this.addressAsBuffer = toBuffer(address);
         this.address = address.toLowerCase();
+        this.addressForEthereumJs = new EthereumJsAddress(this.addressAsBuffer);
+        this.defaultCaller = EthereumJsAddress.fromString("0x1111111111111111111111111111111111111111");
       }
 
       async getEvents(event?: string): Promise<Event[]> {
@@ -109,6 +129,7 @@ class Processor implements IWeb3 {
             filterTopic0Buffer = this.eventTopic0BufferByName[event];
           }
         }
+        // TODO: more filters
 
         // go over all contract records in this block
         const res: Event[] = [];
@@ -154,6 +175,27 @@ class Processor implements IWeb3 {
         return res;
       }
 
+      async isDeployed(): Promise<boolean> {
+        // process all blocks until this one
+        /**/ this.processor.perf.start("findContractsForBlock");
+        await this.processor.data.findContractsForBlock(this.shard, this.processor.currentBlockNumber);
+        /**/ this.processor.perf.end("findContractsForBlock");
+
+        const value = this.processor.data.getContractCode(this.address);
+        return value.length > 0;
+      }
+
+      async getCode(): Promise<string> {
+        // process all blocks until this one
+        /**/ this.processor.perf.start("findContractsForBlock");
+        await this.processor.data.findContractsForBlock(this.shard, this.processor.currentBlockNumber);
+        /**/ this.processor.perf.end("findContractsForBlock");
+
+        const value = this.processor.data.getContractCode(this.address);
+        if (value.length == 0) return "";
+        return toHexString(value);
+      }
+
       async getStorageAt(position: number | string): Promise<string> {
         let stateKey = "";
         if (typeof position == "string") {
@@ -161,6 +203,7 @@ class Processor implements IWeb3 {
           if (position.length != 66) throw new Error("Position must be a 32 byte hex string.");
           stateKey = position.toLowerCase();
         }
+        // TODO: handle number
 
         // process all blocks until this one
         /**/ this.processor.perf.start("findContractsForBlock");
@@ -173,14 +216,53 @@ class Processor implements IWeb3 {
       }
 
       async callMethod(abiItem: AbiItem, options: CallOptions, inputs: any[]): Promise<CallResult> {
-        // process all blocks until this one
-        /**/ this.processor.perf.start("findContractsForBlock");
-        await this.processor.data.findContractsForBlock(this.shard, this.processor.currentBlockNumber);
-        /**/ this.processor.perf.end("findContractsForBlock");
+        // make sure contract is deployed (this will also process all blocks and warm up the contract account)
+        if (!(await this.isDeployed())) {
+          throw new Error(`Contract ${this.address} is not deployed, avoid an exception by calling isDeployed().`);
+        }
 
-        // TODO: finish (EVM)
+        // make sure we are on the correct hard fork
+        /**/ this.processor.perf.start("setHardforkByBlockNumber");
+        this.processor.vm._common.setHardforkByBlockNumber(this.processor.currentBlockNumber);
+        /**/ this.processor.perf.end("setHardforkByBlockNumber");
 
-        return {};
+        // prepare the call
+        const caller = options.from ? EthereumJsAddress.fromString(options.from) : this.defaultCaller;
+        /**/ this.processor.perf.start("encodeFunctionCall");
+        const data = abiCoder.encodeFunctionCall(abiItem, inputs);
+        const dataAsBuffer = toBuffer(data);
+        /**/ this.processor.perf.end("encodeFunctionCall");
+
+        // prepare the state manager
+        this.processor.stateManager.clearTransientData();
+        this.processor.stateManager.clearFakeAccounts();
+        if (!options.from || options.fakeFromAccount) {
+          this.processor.stateManager.addFakeAccount(caller.toString());
+        }
+
+        // call ethereumjs vm
+        /**/ this.processor.perf.start("vm.runCall");
+        const vmResult = await this.processor.vm.runCall({
+          to: this.addressForEthereumJs,
+          caller: caller,
+          origin: caller, // The tx.origin is also the caller here
+          data: dataAsBuffer,
+        });
+        /**/ this.processor.perf.end("vm.runCall");
+
+        // parse the result
+        // TODO: handle exceptions and reverts
+        /**/ this.processor.perf.start("parseCallResultForOutput");
+        let res: any = null;
+        const returnValue = vmResult.execResult.returnValue;
+        if (abiItem.outputs && abiItem.outputs.length > 0) {
+          const decodedResult = abiCoder.decodeParameters(abiItem.outputs, toHexString(returnValue));
+          if (abiItem.outputs.length == 1) res = decodedResult["0"];
+          else res = decodedResult;
+        }
+        /**/ this.processor.perf.end("parseCallResultForOutput");
+
+        return res;
       }
 
       async hasStateChanges(): Promise<boolean> {
@@ -227,4 +309,179 @@ class Processor implements IWeb3 {
     /**/ this.perf.end("parseBlockForOutput");
     return res;
   }
+
+  // adapter for ethereumjs vm
+  stateManager = new (class implements EthereumJsStateManager {
+    protected fakeAccounts: { [address: string]: boolean };
+    protected transientAccounts: { [address: string]: EthereumJsAccount };
+    protected transientState: { [address: string]: { [stateKey: string]: Buffer } };
+
+    constructor(protected processor: Processor) {
+      this.fakeAccounts = {};
+      this.transientAccounts = {};
+      this.transientState = {};
+    }
+
+    clearFakeAccounts() {
+      this.fakeAccounts = {};
+    }
+
+    addFakeAccount(address: string) {
+      this.fakeAccounts[address.toLowerCase()] = true;
+    }
+
+    clearTransientData() {
+      this.transientAccounts = {};
+      this.transientState = {};
+    }
+
+    // ethereumjs interface
+
+    copy(): EthereumJsStateManager {
+      throw new Error("Not implemented.");
+    }
+
+    async getAccount(address: EthereumJsAddress): Promise<EthereumJsAccount> {
+      const addressAsString = address.toString();
+      if (this.transientAccounts[addressAsString]) {
+        // found in our transient cache, return it
+        return this.transientAccounts[addressAsString];
+      } else {
+        // not found in our transient cache, fetch it
+
+        // we can avoid fetching fake accounts
+        if (this.fakeAccounts[addressAsString]) {
+          const newFakeAccount = new EthereumJsAccount();
+          newFakeAccount.balance.iadd(new BN("100000000000000000000")); // 100 ETH
+          return newFakeAccount;
+        }
+
+        // tracked contracts have their balances well known
+        if (this.processor.data.isTrackedContract(addressAsString)) {
+          const balanceAsBuffer = this.processor.data.getContractBalance(addressAsString);
+          const contractAccount = new EthereumJsAccount();
+          contractAccount.balance = toBN(balanceAsBuffer);
+          // TODO: do we need to set the other account fields?
+          return contractAccount;
+        }
+
+        // no choice, we have to fetch it from data
+        throw new Error("Not implemented.");
+      }
+    }
+
+    async putAccount(address: EthereumJsAddress, account: EthereumJsAccount): Promise<void> {
+      const addressAsString = address.toString();
+      this.transientAccounts[addressAsString] = account;
+    }
+
+    async deleteAccount(address: EthereumJsAddress): Promise<void> {
+      const addressAsString = address.toString();
+      delete this.transientAccounts[addressAsString];
+    }
+
+    touchAccount(address: EthereumJsAddress): void {
+      throw new Error("Not implemented.");
+    }
+
+    async putContractCode(address: EthereumJsAddress, value: Buffer): Promise<void> {
+      throw new Error("Not implemented.");
+    }
+
+    async getContractCode(address: EthereumJsAddress): Promise<Buffer> {
+      const addressAsString = address.toString();
+      const code = this.processor.data.getContractCode(addressAsString);
+      if (code.length > 0) return code;
+      else throw new Error("Assertion! vm.getContractCode called for a non deployed contract.");
+    }
+
+    async getContractStorage(address: EthereumJsAddress, key: Buffer): Promise<Buffer> {
+      const addressAsString = address.toString();
+      const keyAsString = toHexString(key);
+      const transientValue = this.transientState[addressAsString]?.[keyAsString];
+      if (transientValue) return transientValue;
+      return this.processor.data.getContractState(addressAsString, keyAsString);
+    }
+
+    async getOriginalContractStorage(address: EthereumJsAddress, key: Buffer): Promise<Buffer> {
+      throw new Error("Not implemented.");
+    }
+
+    async putContractStorage(address: EthereumJsAddress, key: Buffer, value: Buffer): Promise<void> {
+      const addressAsString = address.toString();
+      const keyAsString = toHexString(key);
+      if (!this.transientState[addressAsString]) this.transientState[addressAsString] = {};
+      this.transientState[addressAsString][keyAsString] = value;
+    }
+
+    async clearContractStorage(address: EthereumJsAddress): Promise<void> {
+      throw new Error("Not implemented.");
+    }
+
+    async checkpoint(): Promise<void> {
+      // currently all calls are readonly so we don't need to implement anything here
+    }
+
+    async commit(): Promise<void> {
+      // currently all calls are readonly so we don't need to implement anything here
+    }
+
+    async revert(): Promise<void> {
+      // forget all transient changes
+      this.clearTransientData();
+    }
+
+    async getStateRoot(force?: boolean): Promise<Buffer> {
+      throw new Error("Not implemented.");
+    }
+
+    async setStateRoot(stateRoot: Buffer): Promise<void> {
+      throw new Error("Not implemented.");
+    }
+
+    async dumpStorage(address: EthereumJsAddress): Promise<EthereumJsStorageDump> {
+      throw new Error("Not implemented.");
+    }
+
+    async hasGenesisState(): Promise<boolean> {
+      throw new Error("Not implemented.");
+    }
+
+    async generateCanonicalGenesis(): Promise<void> {
+      throw new Error("Not implemented.");
+    }
+
+    async generateGenesis(initState: any): Promise<void> {
+      throw new Error("Not implemented.");
+    }
+
+    async accountIsEmpty(address: EthereumJsAddress): Promise<boolean> {
+      throw new Error("Not implemented.");
+    }
+
+    async accountExists(address: EthereumJsAddress): Promise<boolean> {
+      throw new Error("Not implemented.");
+    }
+
+    async cleanupTouchedAccounts(): Promise<void> {
+      throw new Error("Not implemented.");
+    }
+
+    clearOriginalStorageCache(): void {
+      throw new Error("Not implemented.");
+    }
+  })(this);
+
+  // adapter for ethereumjs vm
+  blockchain = new (class extends EthereumJsBlockchain {
+    constructor(protected processor: Processor) {
+      super();
+    }
+
+    // ethereumjs interface
+
+    async getBlock(hash: Buffer): Promise<EthereumJsBlock> {
+      throw new Error("Not implemented.");
+    }
+  })(this);
 }

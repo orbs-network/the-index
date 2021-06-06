@@ -2,6 +2,14 @@
 
 Process TheIndex schemas over EVM index data in scale.
 
+## How to write schemas
+
+A schema is a simple JavaScript file that is executed by TheIndex engine.
+
+See several examples for schemas [here](./src/schema-indexer/test/schemas).
+
+The API available to you is documented [here](./src/schema-indexer/interfaces.ts).
+
 ## Build
 
 ```

@@ -9,7 +9,18 @@ import { Block as EthereumJsBlock } from "@ethereumjs/block/dist/block";
 import { StorageDump as EthereumJsStorageDump } from "@ethereumjs/vm/dist/state/interface";
 import abiDefault, { AbiCoder } from "web3-eth-abi";
 import { AbiItem } from "web3-utils";
-import { ISchema, IData, IWeb3, IContract, ICallable, Block, Event, CallOptions, CallResult } from "./interfaces";
+import {
+  ISchema,
+  IData,
+  IWeb3,
+  IContract,
+  ICallable,
+  Block,
+  Event,
+  CallOptions,
+  CallResult,
+  DetailedCallResult,
+} from "./interfaces";
 import {
   toNumber,
   toHexString,
@@ -22,6 +33,7 @@ import {
   toBN,
 } from "./parser";
 import { Perf } from "./perf";
+import { EVMResult } from "@ethereumjs/vm/dist/evm/evm";
 const abiCoder = abiDefault as unknown as AbiCoder;
 
 export async function processSchema(schemaJsPath: string, data: IData, perf: Perf) {
@@ -153,12 +165,12 @@ class Processor implements IWeb3 {
 
               // add the log to results
               /**/ this.processor.perf.start("parseLogForOutput");
-              const abiEvent = this.abiEventsByTopic0[toHexString(topics[0])];
-              if (!abiEvent) continue;
+              const topic0AsString = toHexString(topics[0]);
+              const abiEvent = this.abiEventsByTopic0[topic0AsString];
+              if (!abiEvent) throw new Error(`Assertion! unexpected topic 0 ${topic0AsString}.`);
               const abiEventInputs = abiEvent.inputs || [];
               const dataAsString = toHexString(logParser.getData(log));
               const topicsAsStrings = _.map(topics.slice(1), (topic: Buffer) => toHexString(topic));
-              abiCoder.decodeLog(abiEventInputs, dataAsString, topicsAsStrings);
               const decodedLog = abiCoder.decodeLog(abiEventInputs, dataAsString, topicsAsStrings);
               /**/ this.processor.perf.end("parseLogForOutput");
               res.push({
@@ -166,6 +178,7 @@ class Processor implements IWeb3 {
                 raw: {
                   data: dataAsString,
                   topics: topicsAsStrings,
+                  topic0: topic0AsString,
                 },
                 event: abiEvent.name,
               });
@@ -247,6 +260,7 @@ class Processor implements IWeb3 {
           caller: caller,
           origin: caller, // The tx.origin is also the caller here
           data: dataAsBuffer,
+          gasLimit: options.gas ? new BN(options.gas) : undefined,
         });
         /**/ this.processor.perf.end("vm.runCall");
 
@@ -255,13 +269,54 @@ class Processor implements IWeb3 {
         /**/ this.processor.perf.start("parseCallResultForOutput");
         let res: any = null;
         const returnValue = vmResult.execResult.returnValue;
+        let decodedResult;
         if (abiItem.outputs && abiItem.outputs.length > 0) {
-          const decodedResult = abiCoder.decodeParameters(abiItem.outputs, toHexString(returnValue));
+          decodedResult = abiCoder.decodeParameters(abiItem.outputs, toHexString(returnValue));
           if (abiItem.outputs.length == 1) res = decodedResult["0"];
           else res = decodedResult;
         }
+        if (options.detailedResult) {
+          res = this.parseDetailedCallResult(decodedResult || {}, vmResult);
+        }
         /**/ this.processor.perf.end("parseCallResultForOutput");
 
+        return res;
+      }
+
+      parseDetailedCallResult(returnValues: any, vmResult: EVMResult): DetailedCallResult {
+        const res: DetailedCallResult = {
+          returnValues,
+          logs: [],
+          gasUsed: vmResult.gasUsed.toString(),
+          gasLeft: vmResult.execResult.gas?.toString() || "",
+          gasRefund: vmResult.execResult.gasRefund?.toString() || "",
+        };
+        if (vmResult.execResult.logs) {
+          for (const log of vmResult.execResult.logs) {
+            const logContractAddress = log[0];
+            const topic0AsString = toHexString(log[1][0]);
+            const dataAsString = toHexString(log[2]);
+            const topicsAsStrings = _.map(log[1].slice(1), (topic: Buffer) => toHexString(topic));
+            const event: Event = {
+              returnValues: {},
+              raw: {
+                data: dataAsString,
+                topics: topicsAsStrings,
+                topic0: topic0AsString,
+              },
+              address: toHexString(logContractAddress),
+            };
+            // enrich events from this contract further
+            if (logContractAddress.equals(this.addressAsBuffer) && this.abiEventsByTopic0[topic0AsString]) {
+              const abiEvent = this.abiEventsByTopic0[topic0AsString];
+              const abiEventInputs = abiEvent.inputs || [];
+              const decodedLog = abiCoder.decodeLog(abiEventInputs, dataAsString, topicsAsStrings);
+              event.event = abiEvent.name;
+              event.returnValues = decodedLog;
+            }
+            res.logs.push(event);
+          }
+        }
         return res;
       }
 

@@ -31,6 +31,8 @@ npm run rlp-read ~/go/src/github.com/orbs-network/the-index-go-ethereum/the-inde
     ```
     scp -i ssh.pem "ubuntu@1.2.3.4:/data/the-index/*" src/schema-indexer/test/data
     ```
+    
+    Here is a small amount of test data from Ethereum mainnet (up until block 4,000,000 approx) - [zip](https://drive.google.com/file/d/1LhEwFAH2LEPXtXjepJH01m4il2-CMXPT/view?usp=sharing)
 
 2. List all available test schemas:
 

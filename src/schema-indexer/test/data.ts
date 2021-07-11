@@ -126,6 +126,7 @@ export class LocalTestData implements IData {
     if (!this.isTrackingState) throw new Error("Not tracking state, run data.trackState().");
     const data = this.contractsDataByAddress[address];
     if (data) return data.code;
+    // TODO: load nested contracts lazily
     else return emptyBuffer;
   }
 

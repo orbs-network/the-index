@@ -15,6 +15,7 @@ import { Perf } from "../perf";
 
 export class LocalTestData implements IData {
   protected isTrackingState = false;
+  protected isCalcingAccurateGas = false;
 
   protected blocksBlockNumber = 0;
   protected blocksBuffer = emptyBuffer;
@@ -37,6 +38,14 @@ export class LocalTestData implements IData {
 
   trackState(): void {
     this.isTrackingState = true;
+  }
+
+  calcAccurateGas(): void {
+    this.isCalcingAccurateGas = true;
+  }
+
+  isCalcAccurateGas(): boolean {
+    return this.isCalcingAccurateGas;
   }
 
   async getLatestBlockNumber(): Promise<number> {

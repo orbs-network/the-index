@@ -104,6 +104,8 @@ export interface DetailedCallResult {
 export abstract class IData {
   // instruct the engine to track all state changes in contracts, required when running calls
   abstract trackState(): void;
+  // instruct the engine to handle EIP2929 accurately with gas costs
+  abstract calcAccurateGas(): void;
   // get the latest block number available in raw data (hopefully the tip of the chain)
   abstract getLatestBlockNumber(): Promise<number>;
   // stream block headers one by one until the block number is reached
@@ -118,4 +120,6 @@ export abstract class IData {
   abstract getContractCode(address: string): Buffer;
   // get the contract ETH balance in the current block
   abstract getContractBalance(address: string): Buffer;
+  // getter for calcAccurateGas
+  abstract isCalcAccurateGas(): boolean;
 }

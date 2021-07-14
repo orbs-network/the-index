@@ -532,26 +532,26 @@ class Processor implements IWeb3 {
 
     addWarmedAddress(address: Buffer): void {
       if (!this.processor.data.isCalcAccurateGas()) return;
-      const addressAsString = address.toString();
+      const addressAsString = toHexString(address);
       this.warmedAccounts[addressAsString] = true;
     }
 
     isWarmedAddress(address: Buffer): boolean {
       if (!this.processor.data.isCalcAccurateGas()) return false;
-      const addressAsString = address.toString();
+      const addressAsString = toHexString(address);
       return !!this.warmedAccounts[addressAsString];
     }
 
     addWarmedStorage(address: Buffer, slot: Buffer): void {
       if (!this.processor.data.isCalcAccurateGas()) return;
-      const addressAsString = address.toString();
+      const addressAsString = toHexString(address);
       const slotAsString = toHexString(slot);
       this.warmedAccounts[addressAsString + "-" + slotAsString] = true;
     }
 
     isWarmedStorage(address: Buffer, slot: Buffer): boolean {
       if (!this.processor.data.isCalcAccurateGas()) return false;
-      const addressAsString = address.toString();
+      const addressAsString = toHexString(address);
       const slotAsString = toHexString(slot);
       return !!this.warmedAccounts[addressAsString + "-" + slotAsString];
     }

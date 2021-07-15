@@ -1,3 +1,5 @@
+import { Utils } from "web3-utils";
+
 // main interface of the schema class
 export abstract class ISchema {
   // runs once on init of the schema before travesing over blocks
@@ -14,6 +16,8 @@ export abstract class IWeb3 {
   abstract Contract(jsonAbi: string, address: string): IContract;
   // read the current block header
   abstract getBlock(): Promise<Block | null>;
+  // standard web3 utility functions (https://web3js.readthedocs.io/en/v1.4.0/web3-utils.html)
+  abstract utils: Utils;
 }
 
 // mimic web3 api for a contract instance

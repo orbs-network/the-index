@@ -9,7 +9,7 @@ import { Account as EthereumJsAccount } from "ethereumjs-util/dist/account";
 import { Block as EthereumJsBlock } from "@ethereumjs/block/dist/block";
 import { StorageDump as EthereumJsStorageDump } from "@ethereumjs/vm/dist/state/interface";
 import abiDefault, { AbiCoder } from "web3-eth-abi";
-import { AbiItem } from "web3-utils";
+import web3Utils, { AbiItem } from "web3-utils";
 import {
   ISchema,
   IData,
@@ -77,6 +77,8 @@ class Processor implements IWeb3 {
   }
 
   // web3 interface
+
+  utils = web3Utils;
 
   Contract(jsonAbi: string, address: string): IContract {
     return new (class {

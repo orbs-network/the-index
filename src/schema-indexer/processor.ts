@@ -2,7 +2,8 @@ import _ from "lodash";
 import BN from "bn.js";
 import VM from "@ethereumjs/vm";
 import EthereumJsBlockchain from "@ethereumjs/blockchain";
-import { StateManager as EthereumJsStateManager } from "@ethereumjs/vm/dist/state";
+import { EIP2929StateManager as EthereumJsStateManager } from "@ethereumjs/vm/dist/state/interface";
+import { AccessList as EthereumJsAccessList } from "@ethereumjs/tx";
 import { Address as EthereumJsAddress } from "ethereumjs-util/dist/address";
 import { Account as EthereumJsAccount } from "ethereumjs-util/dist/account";
 import { Block as EthereumJsBlock } from "@ethereumjs/block/dist/block";
@@ -370,11 +371,13 @@ class Processor implements IWeb3 {
     protected fakeAccounts: { [address: string]: boolean };
     protected transientAccounts: { [address: string]: EthereumJsAccount };
     protected transientState: { [address: string]: { [stateKey: string]: Buffer } };
+    protected warmedAccounts: { [address: string]: boolean }; // needed for EIP2929StateManager
 
     constructor(protected processor: Processor) {
       this.fakeAccounts = {};
       this.transientAccounts = {};
       this.transientState = {};
+      this.warmedAccounts = {};
     }
 
     clearFakeAccounts() {
@@ -484,6 +487,7 @@ class Processor implements IWeb3 {
     async revert(): Promise<void> {
       // forget all transient changes
       this.clearTransientData();
+      this.clearWarmedAccounts();
     }
 
     async getStateRoot(force?: boolean): Promise<Buffer> {
@@ -523,6 +527,43 @@ class Processor implements IWeb3 {
     }
 
     clearOriginalStorageCache(): void {
+      throw new Error("Not implemented.");
+    }
+
+    addWarmedAddress(address: Buffer): void {
+      if (!this.processor.data.isCalcAccurateGas()) return;
+      const addressAsString = toHexString(address);
+      this.warmedAccounts[addressAsString] = true;
+    }
+
+    isWarmedAddress(address: Buffer): boolean {
+      if (!this.processor.data.isCalcAccurateGas()) return false;
+      const addressAsString = toHexString(address);
+      return !!this.warmedAccounts[addressAsString];
+    }
+
+    addWarmedStorage(address: Buffer, slot: Buffer): void {
+      if (!this.processor.data.isCalcAccurateGas()) return;
+      const addressAsString = toHexString(address);
+      const slotAsString = toHexString(slot);
+      this.warmedAccounts[addressAsString + "-" + slotAsString] = true;
+    }
+
+    isWarmedStorage(address: Buffer, slot: Buffer): boolean {
+      if (!this.processor.data.isCalcAccurateGas()) return false;
+      const addressAsString = toHexString(address);
+      const slotAsString = toHexString(slot);
+      return !!this.warmedAccounts[addressAsString + "-" + slotAsString];
+    }
+
+    clearWarmedAccounts(): void {
+      this.warmedAccounts = {};
+    }
+
+    generateAccessList?(
+      addressesRemoved: EthereumJsAddress[],
+      addressesOnlyStorage: EthereumJsAddress[]
+    ): EthereumJsAccessList {
       throw new Error("Not implemented.");
     }
   })(this);

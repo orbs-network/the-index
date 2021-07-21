@@ -48,6 +48,6 @@
   "scripts": {
     "prettier": "prettier --write 'src/**/*.{ts,js,json,sol}'",
     "rlp-read": "ts-node ./src/debug/rlp-read.ts",
-    "test-schema": "ts-node ./src/schema-indexer/test/index.ts"
+    "test-schema": "THE_INDEX_DATA_DIR=/data/rlp  node --max-old-space-size=108096 -- node_modules/.bin/ts-node  ./src/schema-indexer/test/index.ts"
   }
 }

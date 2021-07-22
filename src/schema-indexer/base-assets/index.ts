@@ -12,7 +12,7 @@ async function main() {
 
   setWeb3Instance(runner);
 
-  const schema = new Schema(itoken(erc20s.eth.WBTC()));
+  const schema = new Schema(itoken(erc20s.eth.WBTC()), 8);
 
   await runner.run(schema);
 

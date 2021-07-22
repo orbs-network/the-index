@@ -1,8 +1,8 @@
 import { ISchema } from "../interfaces";
-import { IToken, iweb3 } from "./interfaces";
+import { IToken } from "./interfaces";
 import { createClient } from "redis";
 import { promisify } from "util";
-import { bn, ether, zero } from "@defi.org/web3-candies";
+import { bn, zero } from "@defi.org/web3-candies";
 
 export class Schema implements ISchema {
   db = createClient();
@@ -46,9 +46,3 @@ export class Schema implements ISchema {
     console.dir(l);
   }
 }
-
-function sameAddress(a: string, b: string) {
-  return a == b || a.toLowerCase() == b.toLowerCase();
-}
-
-function isContract(address: string) {}

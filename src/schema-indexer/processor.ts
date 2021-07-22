@@ -85,7 +85,6 @@ export class Processor implements IWeb3 {
 
   eth = {
     Contract: class extends IndexedContract {}.bind(undefined, this), // dont ask
-    getCode: (address: string) => this.Contract("[]", address).getCode(),
   };
 
   async getBlock(): Promise<Block | null> {

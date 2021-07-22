@@ -12,18 +12,15 @@ export class Schema implements ISchema {
   dbLastSave = promisify(this.db.lastsave).bind(this.db);
   decimalDiv = zero;
 
-  constructor(public token: IToken) {}
-
-  async onInit() {
-    const decimals = bn(await this.token.methods.decimals().call());
-    if (decimals.gtn(6)) this.decimalDiv = bn(10).pow(bn(6).sub(decimals));
-    else this.decimalDiv = bn(1);
+  constructor(public token: IToken, decimals: number) {
+    this.decimalDiv = decimals > 6 ? bn(10).pow(bn(6).subn(decimals)) : bn(1);
   }
+
+  async onInit() {}
 
   async onBlock(blockNumber: number) {
     if (blockNumber % 1e5 == 0) console.log("block", blockNumber);
     const dbSize = await this.dbGetSize();
-    console.log("dbSize", dbSize);
     if (dbSize > 100) return;
 
     if (!(await this.token.hasStateChanges())) return;

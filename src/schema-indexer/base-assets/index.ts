@@ -3,6 +3,7 @@ import { Perf } from "../perf";
 import { Processor } from "../processor";
 import { LocalTestData } from "../test/data";
 import { Schema } from "./schema";
+import { itoken } from "./interfaces";
 
 async function main() {
   const perf = new Perf();
@@ -10,9 +11,10 @@ async function main() {
   const runner = new Processor(data, perf);
 
   setWeb3Instance(runner);
-  const schema = new Schema(erc20s.eth.WBTC());
 
-  runner.run(schema);
+  const schema = new Schema(itoken(erc20s.eth.WBTC()));
+
+  await runner.run(schema);
 
   perf.report();
 }

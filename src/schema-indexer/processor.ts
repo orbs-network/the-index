@@ -80,8 +80,12 @@ export class Processor implements IWeb3 {
   utils = web3Utils;
 
   Contract(jsonAbi: string, address: string): IContract {
-    return new IndexedContract(this, jsonAbi, address);
+    return new this.eth.Contract(jsonAbi, address);
   }
+
+  eth = {
+    Contract: class extends IndexedContract {}.bind(undefined, this), // dont ask
+  };
 
   async getBlock(): Promise<Block | null> {
     /**/ this.perf.start("findHeaderForBlock");
@@ -133,7 +137,7 @@ class IndexedContract {
 
   methods: { [name: string]: (...inputs: any[]) => ICallable };
 
-  constructor(protected processor: Processor, jsonAbi: string | AbiItem[], protected address: string) {
+  constructor(public processor: Processor, jsonAbi: string | AbiItem[], protected address: string) {
     if (!address.startsWith("0x")) throw new Error("Address does not start with 0x.");
     if (address.length != 42) throw new Error("Address must be a 20 byte hex string.");
 

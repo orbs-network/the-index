@@ -1,16 +1,30 @@
 import { ISchema } from "../interfaces";
 import { IToken, iweb3 } from "./interfaces";
+import { createClient } from "redis";
+import { promisify } from "util";
+import { bn, ether, zero } from "@defi.org/web3-candies";
 
 export class Schema implements ISchema {
-  public db = [] as any[];
+  db = createClient();
+  dbGetSize = promisify(this.db.dbsize).bind(this.db);
+  dbIncrement = promisify(this.db.zincrby).bind(this.db, this.token.name);
+  dbSave = promisify(this.db.bgsave).bind(this.db);
+  dbLastSave = promisify(this.db.lastsave).bind(this.db);
+  decimalDiv = zero;
 
   constructor(public token: IToken) {}
 
-  async onInit() {}
+  async onInit() {
+    const decimals = bn(await this.token.methods.decimals().call());
+    if (decimals.gtn(6)) this.decimalDiv = bn(10).pow(bn(6).sub(decimals));
+    else this.decimalDiv = bn(1);
+  }
 
   async onBlock(blockNumber: number) {
     if (blockNumber % 1e5 == 0) console.log("block", blockNumber);
-    if (this.db.length > 100) return;
+    const dbSize = await this.dbGetSize();
+    console.log("dbSize", dbSize);
+    if (dbSize > 100) return;
 
     if (!(await this.token.hasStateChanges())) return;
 
@@ -18,23 +32,18 @@ export class Schema implements ISchema {
     if (events.length == 0) return;
 
     for (const event of events) {
-      const { from, to, value } = event.returnValues as any;
-      const fromContract = await iweb3().eth.getCode(from);
-      if (fromContract) {
-        const actor = fromContract;
-        const amount = value;
-
-        this.db.push({
-          blockNumber,
-          actor,
-          amount,
-        });
-      }
+      const { to, value } = event.returnValues as any;
+      const actor = to;
+      const amount: number = bn(value).div(this.decimalDiv).toNumber();
+      await this.dbIncrement(amount, actor);
     }
   }
 
   async onDone() {
-    console.dir(this.db);
+    const r = await this.dbSave();
+    console.dir(r);
+    const l = await this.dbLastSave();
+    console.dir(l);
   }
 }
 

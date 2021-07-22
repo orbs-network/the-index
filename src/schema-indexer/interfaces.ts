@@ -1,45 +1,45 @@
 import { Utils } from "web3-utils";
 
 // main interface of the schema class
-export abstract class ISchema {
+export interface ISchema {
   // runs once on init of the schema before travesing over blocks
-  abstract onInit(web3: IWeb3, rawData: IData): Promise<void>;
+  onInit(web3: IWeb3, rawData: IData): Promise<void>;
   // runs once on every block (consecutive)
-  abstract onBlock(blockNumber: number): Promise<void>;
+  onBlock(blockNumber: number): Promise<void>;
   // runs once when the schema is complete after all blocks
-  abstract onDone(): Promise<void>;
+  onDone(): Promise<void>;
 }
 
 // mimic web3 api to query various things about the current block
-export abstract class IWeb3 {
+export interface IWeb3 {
   // create a contract instance for doing calls and getting events
-  abstract Contract(jsonAbi: string, address: string): IContract;
+  Contract(jsonAbi: string, address: string): IContract;
   // read the current block header
-  abstract getBlock(): Promise<Block | null>;
+  getBlock(): Promise<Block | null>;
   // standard web3 utility functions (https://web3js.readthedocs.io/en/v1.4.0/web3-utils.html)
-  abstract utils: Utils;
+  utils: Utils;
 }
 
 // mimic web3 api for a contract instance
-export abstract class IContract {
+export interface IContract {
   // get events emitted in the current block
-  abstract getEvents(event?: string): Promise<Event[]>;
+  getEvents(event?: string): Promise<Event[]>;
   // is the available (already deployed) in the current block
-  abstract isDeployed(): Promise<boolean>;
+  isDeployed(): Promise<boolean>;
   // did the contract change its storage state in the current block
-  abstract hasStateChanges(): Promise<boolean>;
+  hasStateChanges(): Promise<boolean>;
   // get a storage slot in this contract in the current block
-  abstract getStorageAt(position: number | string): Promise<string>;
+  getStorageAt(position: number | string): Promise<string>;
   // get the code for the contract in the current block (assuming it was deployed already)
-  abstract getCode(): Promise<string>;
+  getCode(): Promise<string>;
   // will be populated automatically with all available methods according to the abi
-  abstract methods: { [name: string]: (...inputs: any[]) => ICallable };
+  methods: { [name: string]: (...inputs: any[]) => ICallable };
 }
 
 // mimic web3 api for a method allowing to call it
-export abstract class ICallable {
+export interface ICallable {
   // call the method
-  abstract call(options?: CallOptions): Promise<CallResult>;
+  call(options?: CallOptions): Promise<CallResult>;
 }
 
 // block header
@@ -105,25 +105,25 @@ export interface DetailedCallResult {
 }
 
 // low level api to query the raw data source directly, normally not used
-export abstract class IData {
+export interface IData {
   // instruct the engine to track all state changes in contracts, required when running calls
-  abstract trackState(): void;
+  trackState(): void;
   // instruct the engine to handle EIP2929 accurately with gas costs
-  abstract calcAccurateGas(): void;
+  calcAccurateGas(): void;
   // get the latest block number available in raw data (hopefully the tip of the chain)
-  abstract getLatestBlockNumber(): Promise<number>;
+  getLatestBlockNumber(): Promise<number>;
   // stream block headers one by one until the block number is reached
-  abstract findHeaderForBlock(blockNumber: number): Promise<Buffer[]>;
+  findHeaderForBlock(blockNumber: number): Promise<Buffer[]>;
   // stream contract records one by one until the block number is reached
-  abstract findContractsForBlock(shard: string, blockNumber: number): Promise<Buffer[]>;
+  findContractsForBlock(shard: string, blockNumber: number): Promise<Buffer[]>;
   // have we seen contract records for this address so far
-  abstract isTrackedContract(address: string): boolean;
+  isTrackedContract(address: string): boolean;
   // get the storage value for a state key in the current block
-  abstract getContractState(address: string, stateKey: string): Buffer;
+  getContractState(address: string, stateKey: string): Buffer;
   // get the contract code in the current block
-  abstract getContractCode(address: string): Buffer;
+  getContractCode(address: string): Buffer;
   // get the contract ETH balance in the current block
-  abstract getContractBalance(address: string): Buffer;
+  getContractBalance(address: string): Buffer;
   // getter for calcAccurateGas
-  abstract isCalcAccurateGas(): boolean;
+  isCalcAccurateGas(): boolean;
 }

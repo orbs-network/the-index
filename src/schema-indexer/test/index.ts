@@ -3,14 +3,13 @@ import { Perf } from "../perf";
 import { processSchema } from "../processor";
 import { LocalTestData } from "./data";
 
-
 async function main() {
   console.log(process.argv);
-  const schemaName = process.argv[2]; 
+  const schemaName = process.argv[2];
   let schemaArguments;
   try {
     schemaArguments = JSON.parse(process.argv[3]) || {};
-  } catch(e) {
+  } catch (e) {
     schemaArguments = {};
   }
   if (!schemaName) {

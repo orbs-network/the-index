@@ -1,45 +1,36 @@
 import { ISchema } from "../interfaces";
 import { IToken } from "./interfaces";
-import { createClient } from "redis";
-import { promisify } from "util";
-import { bn, zero } from "@defi.org/web3-candies";
+import { bn, to6, zero } from "@defi.org/web3-candies";
+import Level from "level";
 
-export class Schema implements ISchema {
-  db = createClient();
-  dbGetSize = promisify(this.db.dbsize).bind(this.db);
-  dbIncrement = promisify(this.db.zincrby).bind(this.db, this.token.name);
-  dbSave = promisify(this.db.bgsave).bind(this.db);
-  dbLastSave = promisify(this.db.lastsave).bind(this.db);
-  decimalDiv = zero;
+export class TokenReceiversSchema implements ISchema {
+  temp = {} as any;
 
-  constructor(public token: IToken, decimals: number) {
-    this.decimalDiv = decimals > 6 ? bn(10).pow(bn(6).subn(decimals)) : bn(1);
+  decimals = zero;
+
+  constructor(public db: Level.LevelDB, public token: IToken) {}
+
+  async onInit() {
+    this.decimals = bn(await this.token.methods.decimals().call());
   }
-
-  async onInit() {}
 
   async onBlock(blockNumber: number) {
     if (blockNumber % 1e5 == 0) console.log("block", blockNumber);
-    const dbSize = await this.dbGetSize();
-    if (dbSize > 100) return;
-
     if (!(await this.token.hasStateChanges())) return;
 
-    const events = await this.token.getEvents("Transfer");
-    if (events.length == 0) return;
+    const transfers = await this.token.getEvents("Transfer");
+    if (transfers.length == 0) return;
 
-    for (const event of events) {
+    for (const event of transfers) {
       const { to, value } = event.returnValues as any;
-      const actor = to;
-      const amount: number = bn(value).div(this.decimalDiv).toNumber();
-      await this.dbIncrement(amount, actor);
+      const amount: number = to6(value, this.decimals).toNumber();
+      if (amount > 0) this.temp[to] += amount;
     }
   }
 
   async onDone() {
-    const r = await this.dbSave();
-    console.dir(r);
-    const l = await this.dbLastSave();
-    console.dir(l);
+    console.log(await this.db.put(`TokenReceivers-${this.token.name}`, this.temp));
   }
+
+  async output() {}
 }

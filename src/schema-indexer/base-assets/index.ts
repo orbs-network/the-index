@@ -14,6 +14,8 @@ async function main() {
 
   const token = erc20s.eth.WBTC();
 
+  data.trackState();
+
   const schema = new TokenReceiversSchema(itoken(token));
 
   /**

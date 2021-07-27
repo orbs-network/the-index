@@ -2,7 +2,7 @@ import { erc20s, setWeb3Instance } from "@defi.org/web3-candies";
 import { Perf } from "../perf";
 import { Processor } from "../processor";
 import { LocalTestData } from "../test/data";
-import { TokenReceiversSchema } from "./schema";
+import { TokenReceiversSchema } from "./token-receivers";
 import { itoken } from "./interfaces";
 import Level from "level";
 
